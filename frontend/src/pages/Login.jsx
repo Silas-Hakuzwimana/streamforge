@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft, LogIn, CheckCircle } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import { loginUser, verifyOtp } from '../services/authService';
+import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext';
 
-export default function Login({ onLoggedIn }) {
+export default function Login() {
+  const { login, verifyOtp, loading } = useAuth(); // Use auth functions from context
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [userId, setUserId] = useState(null);
   const [step, setStep] = useState(1); // 1=login, 2=OTP
-  const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false); // Local loading state
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [redirecting, setRedirecting] = useState(false);
+  const { setUser, setToken } = useAuth();
 
   const navigate = useNavigate();
 
@@ -37,17 +39,21 @@ export default function Login({ onLoggedIn }) {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
     try {
-      const res = await loginUser(email, password);
+      const res = await login(email, password); // Use context login function
+      console.log('Login response:', res); // Debug log
+
       toast.success(res.message || 'Login OTP sent to your email');
       setUserId(res.userId);
       setStep(2);
     } catch (err) {
-      setErrors({ general: err.response?.data?.message || 'Login failed. Please try again.' });
-      toast.error(err.response?.data?.message || 'Login failed. Please try again.');
+      console.error('Login error:', err); // Debug log
+      const errorMessage = err.message || 'Login failed. Please try again.';
+      setErrors({ general: errorMessage });
+      toast.error(errorMessage);
     }
-    setLoading(false);
+    setLocalLoading(false);
   };
 
   const handleVerifyOtp = async (e) => {
@@ -64,32 +70,50 @@ export default function Login({ onLoggedIn }) {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
     try {
-      const res = await verifyOtp(userId, otp);
-      if (res.success) toast.success(res.message || 'OTP verified, login successful');
+      const res = await verifyOtp(userId, otp); // Use context verifyOtp function
+      // Update context state
+      setUser(res.user);
+      setToken(res.token);
 
-      setStep(3);
+      console.log('OTP verification response:', res); // Debug log
 
-      if (onLoggedIn) {
-        onLoggedIn(res.data);
+      if (res.success || res.user) {
+        // Show success notification
+        toast.success(res.message || 'OTP verified, login successful');
+
+
+
+
+        // Set redirecting state
+        setRedirecting(true);
+        setStep(3);
+
+        // Navigate to dashboard after a short delay
+        console.log('Attempting to navigate to dashboard...');
+        setTimeout(() => {
+          console.log('Navigating to dashboard...');
+          navigate('/dashboard', { replace: true });
+        }, 1000);
+
+      } else {
+        throw new Error(res.message || 'OTP verification failed');
       }
-
-      // Redirect or update app state
-      setRedirecting(true);
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
     } catch (err) {
-      setErrors({ otp: err.response?.data?.message || 'OTP verification failed' });
+      console.error('OTP verification error:', err); // Debug log
+      const errorMessage = err.message || 'OTP verification failed';
+      setErrors({ otp: errorMessage });
+      toast.error(errorMessage);
     }
-    setLoading(false);
+    setLocalLoading(false);
   };
 
   const handleBackToLogin = () => {
     setStep(1);
     setOtp('');
     setErrors({});
+    setUserId(null);
   };
 
   const handleKeyPress = (e, action) => {
@@ -98,7 +122,7 @@ export default function Login({ onLoggedIn }) {
     }
   };
 
-  // Success State
+  // Success State - Auto-redirect after shorter delay
   if (step === 3) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
@@ -117,6 +141,29 @@ export default function Login({ onLoggedIn }) {
                   <div className="w-8 h-8 border-2 border-green-600/30 border-t-green-600 rounded-full animate-spin" />
                 </div>
               )}
+              {/* Manual redirect buttons as fallback */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    console.log('Manual navigation attempt...');
+                    try {
+                      navigate('/dashboard', { replace: true });
+                    } catch (err) {
+                      console.error('Manual navigation failed:', err);
+                      window.location.href = '/dashboard';
+                    }
+                  }}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  Go to Dashboard
+                </button>
+                <button
+                  onClick={() => window.location.href = '/dashboard'}
+                  className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors underline text-sm"
+                >
+                  Force Redirect to Dashboard
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -132,7 +179,7 @@ export default function Login({ onLoggedIn }) {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl mb-4 shadow-lg">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">StreamForge</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2"></h1>
           <p className="text-gray-600">Sign in to your account</p>
         </div>
 
@@ -225,10 +272,10 @@ export default function Login({ onLoggedIn }) {
                 <button
                   type="button"
                   onClick={handleLogin}
-                  disabled={loading}
+                  disabled={localLoading || loading}
                   className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl flex items-center justify-center"
                 >
-                  {loading ? (
+                  {localLoading || loading ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                       Signing In...
@@ -297,10 +344,10 @@ export default function Login({ onLoggedIn }) {
                   <button
                     type="button"
                     onClick={handleVerifyOtp}
-                    disabled={loading || otp.length !== 6}
+                    disabled={localLoading || loading || otp.length !== 6}
                     className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl flex items-center justify-center"
                   >
-                    {loading ? (
+                    {localLoading || loading ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                         Verifying...
@@ -322,6 +369,13 @@ export default function Login({ onLoggedIn }) {
                     Back to Login
                   </button>
                 </div>
+
+                {/* Debug info for troubleshooting */}
+                {import.meta.env.NODE_ENV === 'development' && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
+                    <p><strong>Debug:</strong> UserId: {userId}, Step: {step}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,12 +1,32 @@
-import { createContext,useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // {id, name, email, role}
-  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(false);
+
+  // Persist user & token to localStorage whenever they change
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('user');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('token', token);
+    } else {
+      localStorage.removeItem('token');
+    }
+  }, [token]);
 
   // -------------------- REGISTER --------------------
   const register = async (name, email, password) => {
@@ -14,7 +34,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post('/auth/register', { name, email, password });
       setLoading(false);
-      return res.data; // {message, userId}
+      return res.data;
     } catch (err) {
       setLoading(false);
       throw err.response?.data || { message: 'Registration failed' };
@@ -27,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post('/auth/login', { email, password });
       setLoading(false);
-      return res.data; // {message, userId}
+      return res.data; // { message, userId }
     } catch (err) {
       setLoading(false);
       throw err.response?.data || { message: 'Login failed' };
@@ -40,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post('/auth/verify-otp', { userId, otpCode });
       setUser(res.data.user);
-      setToken(res.data.token); // optional if using cookies
+      setToken(res.data.token);
       setLoading(false);
       return res.data;
     } catch (err) {
@@ -53,10 +73,11 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await api.post('/auth/logout');
-      setUser(null);
-      setToken(null);
     } catch (err) {
       console.error('Logout failed:', err);
+    } finally {
+      setUser(null);
+      setToken(null);
     }
   };
 
@@ -93,6 +114,7 @@ export const AuthProvider = ({ children }) => {
         forgotPassword,
         resetPassword,
         setUser,
+        setToken,
       }}
     >
       {children}
@@ -100,7 +122,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-
-// Custom hook
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

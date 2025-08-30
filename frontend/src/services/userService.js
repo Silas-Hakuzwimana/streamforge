@@ -1,7 +1,7 @@
 import api from './api';
 
 export const getUserProfile = async () => {
-  const res = await api.get('/users/profile');
+  const res = await api.get('/users/me');
   return res.data;
 };
 

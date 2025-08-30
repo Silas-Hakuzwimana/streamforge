@@ -8,11 +8,4 @@ const generateToken = (userId) => {
   });
 };
 
-const generateResetToken = async () => {
-  crypto.randomBytes(32).toString('hex');
-  user.resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
-};
-module.exports = { generateToken, generateResetToken };
+module.exports = { generateToken };

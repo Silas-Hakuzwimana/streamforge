@@ -8,7 +8,7 @@ const {
   sendWelcomeEmail,
 } = require('../services/email.service');
 const { generateOtpCode } = require('../utils/generateOTP');
-const { generateToken, generateResetToken } = require('../utils/generateToken');
+const { generateToken } = require('../utils/generateToken');
 
 // -------------------- CONTROLLERS --------------------
 
@@ -46,10 +46,6 @@ exports.login = async (req, res) => {
   const hashedOtp = crypto.createHash('sha256').update(otpCode).digest('hex');
   const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-  console.log('Generated OTP for user:', user._id, 'is:', otpCode);
-
-  console.log('Saving OTP hash:', hashedOtp, 'expiresAt:', expiresAt);
-
   // Save OTP (plain text)
   await Otp.findOneAndUpdate(
     { userId: user._id }, // filter by user
@@ -57,8 +53,10 @@ exports.login = async (req, res) => {
     { upsert: true, new: true }, // create if not exists
   );
 
+  const userName = user.name.split(' ')[0];
+
   // Send OTP via email
-  await sendOtpEmail(user.email, otpCode);
+  await sendOtpEmail(user.email, otpCode, userName);
 
   res.status(200).json({ message: 'OTP sent to your email', userId: user._id });
 };
@@ -96,43 +94,58 @@ exports.verifyOtp = async (req, res) => {
   // Generate JWT token
   const token = generateToken(userId);
 
-  // Send cookie
-  // res.cookie('token', token, {
-  //   httpOnly: true,
-  //   secure: process.env.NODE_ENV === 'production',
-  //   sameSite: 'Strict',
-  //   maxAge: 60 * 60 * 1000, // 1 hour
-  // });
-
-  return res.status(200).json({
-    message: 'OTP verified, login successful',
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    },
-  });
-
+  res
+    .cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 1000, // 1 hour
+    })
+    .status(200)
+    .json({
+      message: 'OTP verified, login successful',
+      token, // optional if frontend wants to store in localStorage
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   // res.status(200).json({ message: 'OTP verified, login successful' });
 };
 
 // FORGOT PASSWORD
 exports.forgotPassword = async (req, res) => {
-  const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-  const resetToken = generateResetToken();
-  user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-  await user.save();
+    // Generate a reset token (plain)
+    const resetToken = crypto.randomBytes(32).toString('hex');
 
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-  await sendResetEmail(user.email, resetUrl);
+    // Hash the token before saving in DB
+    user.resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
 
-  res.status(200).json({ message: 'Password reset email sent' });
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    const userName = user.name.split(' ')[0];
+
+    // Send reset email with plain token in URL
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    await sendResetEmail(user.email, resetUrl, userName);
+
+    res.status(200).json({ message: 'Password reset email sent' });
+  } catch (error) {
+    console.error('Forgot Password Error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 // RESET PASSWORD
