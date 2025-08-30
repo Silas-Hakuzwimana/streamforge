@@ -1,0 +1,40 @@
+                        ┌───────────────────────┐
+                        │       React (Vite)    │
+                        │   + TailwindCSS UI    │
+                        │  - Paste URL input    │
+                        │  - Show metadata      │
+                        │  - Download button    │
+                        └──────────┬────────────┘
+                                   │ (Axios)
+                                   ▼
+                        ┌───────────────────────┐
+                        │   Node.js (Express)   │
+                        │  Controllers + Routes │
+                        │  /videos/metadata     │
+                        │  /videos/download     │
+                        └──────────┬────────────┘
+                                   │
+             ┌─────────────────────┼─────────────────────┐
+             │                     │                     │
+             ▼                     ▼                     ▼
+ ┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
+ │   Services Layer       │ │  Middleware Layer     │ │   Utilities           │
+ │ - yt-dlp Service       │ │ - Error handler       │ │ - Logger              │
+ │ - FFmpeg Service       │ │ - Rate limiter        │ │ - Validator           │
+ │ - Email Service        │ │ - Auth (if needed)    │ │ - Response wrapper    │
+ └──────────┬─────────────┘ └──────────┬─────────────┘ └──────────┬──────────┘
+            │                           │                          │
+            ▼                           ▼                          ▼
+ ┌───────────────────────┐     ┌───────────────────────┐     ┌───────────────────────┐
+ │   yt-dlp (Engine)     │     │   Database (Optional)  │     │   File System / Temp  │
+ │ - Fetch metadata      │     │ - Users, Downloads     │     │ - Cache downloads     │
+ │ - Download streams    │     │ - Premium accounts     │     │ - Serve files         │
+ └───────────────────────┘     └───────────────────────┘     └───────────────────────┘
+            │
+            ▼
+ ┌───────────────────────┐
+ │    FFmpeg Converter   │
+ │ - MP4, MP3, AAC, etc. │
+ │ - Compression         │
+ │ - Trimming            │
+ └───────────────────────┘

@@ -1,0 +1,11 @@
+#------------------------
+#IGNORE ENVIRONMENT FILE
+#------------------------
+.env 
+
+#--------------------------
+#IGNORE DEPENDENCY FOLDER 
+#--------------------------
+
+node_modules/
+temp_uploads/

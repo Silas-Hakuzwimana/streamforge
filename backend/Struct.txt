@@ -1,0 +1,104 @@
+📌 Backend Tech Stack
+
+Node.js + Express → REST API
+
+MongoDB + Mongoose → Database
+
+Cloudinary → Store profile images (just store URLs in DB)
+
+Nodemailer (or better: Resend / Mailgun / AWS SES) → Send OTP emails
+
+JWT → Authentication
+
+Bcrypt → Password hashing
+
+Express Middlewares → Auth, validation, error handling
+
+2FA → Password + OTP sent to email
+
+📂 Backend Project Structure
+streamforge-backend/
+│── src/
+│   ├── config/
+│   │   ├── db.js              # MongoDB connection
+│   │   ├── cloudinary.js      # Cloudinary setup
+│   │   └── email.js           # Email service (Nodemailer)
+│   │
+│   ├── controllers/
+│   │   ├── authController.js  # Register, login, OTP
+│   │   └── userController.js  # Profile management
+│   │
+│   ├── models/
+│   │   ├── User.js            # User schema
+│   │   └── Otp.js             # OTP schema
+│   │
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   └── userRoutes.js
+│   │
+│   ├── services/
+│   │   ├── emailService.js    # OTP + notifications
+│   │   └── cloudinaryService.js
+│   │
+│   ├── middlewares/
+│   │   ├── authMiddleware.js  # Protect routes
+│   │   └── errorMiddleware.js # Central error handler
+│   │
+│   ├── utils/
+│   │   ├── generateOTP.js
+│   │   ├── generateToken.js   # JWT
+│   │   └── hashPassword.js
+│   │
+│   ├── app.js                 # Express setup
+│   └── server.js              # Entry point
+│
+├── .env
+├── package.json
+└── README.md
+
+🗄️ Database (MongoDB Collections)
+User Collection (users)
+{
+  _id: ObjectId,
+  name: String,
+  email: { type: String, unique: true },
+  password: String,         // bcrypt hashed
+  profilePic: String,       // Cloudinary URL
+  bio: String,
+  twoFactorEnabled: Boolean,
+  createdAt: Date,
+  updatedAt: Date
+}
+
+OTP Collection (otps)
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  otpCode: String,          // hashed OTP
+  expiresAt: Date,
+  createdAt: Date
+}
+
+🔐 Authentication Flow (with 2FA via Email)
+
+Register → User provides email + password → Save to DB → Send welcome email
+
+Login Step 1 (credentials) → User provides email + password → Validate → Generate OTP → Send to user’s email
+
+Login Step 2 (OTP) → User submits OTP → Verify → Generate JWT → Store in client (httpOnly cookie / localStorage)
+
+Profile Management → Authenticated user can update profile (upload to Cloudinary → save URL in MongoDB)
+
+📌 Example Auth Flow
+
+POST /api/auth/register → Register
+
+POST /api/auth/login → Enter email + password → OTP emailed
+
+POST /api/auth/verify-otp → Enter OTP → Issue JWT
+
+GET /api/users/me → Get profile (protected)
+
+PUT /api/users/me → Update profile (protected, Cloudinary upload)
+
+🔥 This backend will be modular, clean, and enterprise-level.
